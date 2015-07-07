@@ -1,0 +1,419 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<proxy xmlns="http://ws.apache.org/ns/synapse"
+       name="SalesForceProxy"
+       transports="https,http"
+       statistics="disable"
+       trace="disable"
+       startOnLoad="true">
+   <target>
+      <inSequence>
+         <header name="Action" value="http://www.webserviceX.NET/ConversionRate"/>
+         <payloadFactory media-type="xml">
+            <format>
+               <m0:ConversionRate xmlns:m0="http://www.webserviceX.NET/">
+                  <m0:FromCurrency>EUR</m0:FromCurrency>
+                  <m0:ToCurrency>USD</m0:ToCurrency>
+               </m0:ConversionRate>
+            </format>
+            <args/>
+         </payloadFactory>
+         <call>
+            <endpoint>
+               <address uri="http://www.webservicex.net/CurrencyConvertor.asmx?WSDL"/>
+            </endpoint>
+         </call>
+         <log>
+            <property xmlns:m0="http://www.webserviceX.NET/"
+                      name="rateEUR"
+                      expression="//m0:ConversionRateResponse/m0:ConversionRateResult"/>
+         </log>
+         <property xmlns:m0="http://www.webserviceX.NET/"
+                   name="rateEUR"
+                   expression="//m0:ConversionRateResponse/m0:ConversionRateResult"/>
+         <log>
+            <property name="STATE" value="the rateEUR was printed above!!!"/>
+         </log>
+         <log level="full"/>
+         <salesforce.init>
+            <username>XXXXXXXXXX.com</username>
+            <password>PASSWORDANDKEY</password>
+            <loginUrl>https://login.salesforce.com/services/Soap/u/27.0</loginUrl>
+         </salesforce.init>
+         <log>
+            <property name="STATE" value="Authentication success!!!"/>
+         </log>
+         <salesforce.query>
+            <batchSize>2000</batchSize>
+            <queryString>SELECT Id,Amount_Converted__c,Close_Date__c,Snapshot_Date__c,Opportunity_Status__c,Best_Case__c,Expected_Case__c,Worst_Case__c,Close_Confidence__c FROM Opportunity_Trend__c</queryString>
+         </salesforce.query>
+         <class name="org.wso2.carbon.solutions.sf.DateStamper"/>
+         <log>
+            <property name="STATE" value="Query success!!!"/>
+         </log>
+         <iterate xmlns:ns1="urn:partner.soap.sforce.com"
+                  xmlns:ns="http://org.apache.synapse/xsd"
+                  continueParent="true"
+                  expression="$body/ns1:queryResponse/ns1:result/ns1:records"
+                  sequential="true">
+            <target>
+               <sequence>
+                  <dbreport>
+                     <connection>
+                        <pool>
+                           <password>root</password>
+                           <user>root</user>
+                           <url>jdbc:mysql://localhost:3306/sf</url>
+                           <driver>com.mysql.jdbc.Driver</driver>
+                        </pool>
+                     </connection>
+                     <statement>
+                        <sql>
+                                                                            insert into OpportunityTrend(Id,Amount_Converted__c,Close_Date__c,Snapshot_Date__c,Opportunity_Status__c,Best_Case__c,Expected_Case__c,Worst_Case__c,Close_Confidence__c,RecordDate) values (?,?,?,?,?,?,?,?,?,?) </sql>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Id/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Amount_Converted__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Close_Date__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Snapshot_Date__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Opportunity_Status__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Best_Case__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Expected_Case__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Worst_Case__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Close_Confidence__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:RecordDate/text()"
+                                   type="VARCHAR"/>
+                     </statement>
+                  </dbreport>
+                  <log>
+                     <property name="STATE" value="db report success!!!"/>
+                  </log>
+               </sequence>
+            </target>
+         </iterate>
+         <log>
+            <property name="STATE" value="finished first query"/>
+         </log>
+         <salesforce.query>
+            <batchSize>2000</batchSize>
+            <queryString>SELECT Id,AccountId, Project__c, Name, Products_in_use__c,Amount,FiscalYear,IsClosed,IsWon,Opp_End_Date__c,Opp_Start_Date__c,LeadSource,Services_Amount__c,Opportunity_Term__c,Production_Support_Amount__c,Includes_Consulting__c,Includes_Dev_Support__c,Includes_Production_Support__c,Includes_QuickStart__c,Probability,Reason_Lost__c,ForecastCategory,Last_Account_Sale__c,CurrencyIsoCode, CloseDate FROM Opportunity WHERE CurrencyIsoCode='EUR'</queryString>
+         </salesforce.query>
+         <class name="org.wso2.carbon.solutions.sf.DateStamper"/>
+         <class name="mediator.CustomMediator"/>
+         <log>
+            <property name="STATE" value="Query success!!!"/>
+         </log>
+         <iterate xmlns:ns1="urn:partner.soap.sforce.com"
+                  xmlns:ns="http://org.apache.synapse/xsd"
+                  continueParent="true"
+                  expression="$body/ns1:queryResponse/ns1:result/ns1:records"
+                  sequential="true">
+            <target>
+               <sequence>
+                  <dbreport>
+                     <connection>
+                        <pool>
+                           <password>root</password>
+                           <user>root</user>
+                           <url>jdbc:mysql://localhost:3306/salesforce</url>
+                           <driver>com.mysql.jdbc.Driver</driver>
+                        </pool>
+                     </connection>
+                     <statement>
+                        <sql>
+                                                                            insert into products(Id,AccountId, Project__c, Name, Products_in_use__c,Amount,FiscalYear,IsClosed,IsWon,Opp_End_Date__c,Opp_Start_Date__c,LeadSource,Services_Amount__c,Opportunity_Term__c,Production_Support_Amount__c,Includes_Consulting__c,Includes_Dev_Support__c,Includes_Production_Support__c,Includes_QuickStart__c,Probability,Reason_Lost__c,ForecastCategory,Last_Account_Sale__c,Currency_code, CloseDate,RecordDate) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) </sql>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Id/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:AccountId/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Project__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Name/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Products_in_use__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Amount/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:FiscalYear/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:IsClosed/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:IsWon/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Opp_End_Date__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Opp_Start_Date__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:LeadSource/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Services_Amount__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Opportunity_Term__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Production_Support_Amount__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Includes_Consulting__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Includes_Dev_Support__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Includes_Production_Support__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Includes_QuickStart__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Probability/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Reason_Lost__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:ForecastCategory/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Last_Account_Sale__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:CurrencyIsoCode/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:CloseDate/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:RecordDate/text()"
+                                   type="VARCHAR"/>
+                     </statement>
+                  </dbreport>
+                  <log>
+                     <property name="STATE" value="db report success!!!"/>
+                  </log>
+               </sequence>
+            </target>
+         </iterate>
+         <log>
+            <property name="STATE" value="finished 2nd query"/>
+         </log>
+         <salesforce.query>
+            <batchSize>2000</batchSize>
+            <queryString>SELECT Id,AccountId, Project__c, Name, Products_in_use__c,Amount,FiscalQuarter,IsClosed,IsWon,Opp_End_Date__c,Opp_Start_Date__c,LeadSource,Services_Amount__c,Opportunity_Term__c,Production_Support_Amount__c,Includes_Consulting__c,Includes_Dev_Support__c,Includes_Production_Support__c,Includes_QuickStart__c,Probability,Reason_Lost__c,ForecastCategory,Last_Account_Sale__c,CurrencyIsoCode, CloseDate FROM Opportunity</queryString>
+         </salesforce.query>
+         <class name="org.wso2.carbon.solutions.sf.DateStamper"/>
+         <log>
+            <property name="STATE" value="Query success!!!"/>
+         </log>
+         <iterate xmlns:ns1="urn:partner.soap.sforce.com"
+                  xmlns:ns="http://org.apache.synapse/xsd"
+                  continueParent="true"
+                  expression="$body/ns1:queryResponse/ns1:result/ns1:records"
+                  sequential="true">
+            <target>
+               <sequence>
+                  <dbreport>
+                     <connection>
+                        <pool>
+                           <password>root</password>
+                           <user>root</user>
+                           <url>jdbc:mysql://localhost:3306/sf</url>
+                           <driver>com.mysql.jdbc.Driver</driver>
+                        </pool>
+                     </connection>
+                     <statement>
+                        <sql>
+                                                                            insert into pipeline(Id,AccountId, Project__c, Name, Products_in_use__c,Amount,FiscalQuarter,IsClosed,IsWon,Opp_End_Date__c,Opp_Start_Date__c,LeadSource,Services_Amount__c,Opportunity_Term__c,Production_Support_Amount__c,Includes_Consulting__c,Includes_Dev_Support__c,Includes_Production_Support__c,Includes_QuickStart__c,Probability,Reason_Lost__c,ForecastCategory,Last_Account_Sale__c,Currency_code, CloseDate,RecordDate) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) </sql>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Id/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:AccountId/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Project__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Name/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Products_in_use__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Amount/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:FiscalQuarter/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:IsClosed/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:IsWon/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Opp_End_Date__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Opp_Start_Date__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:LeadSource/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Services_Amount__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Opportunity_Term__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Production_Support_Amount__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Includes_Consulting__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Includes_Dev_Support__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Includes_Production_Support__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Includes_QuickStart__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Probability/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Reason_Lost__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:ForecastCategory/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:Last_Account_Sale__c/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:CurrencyIsoCode/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:CloseDate/text()"
+                                   type="VARCHAR"/>
+                        <parameter xmlns:nsa="urn:sobject.partner.soap.sforce.com"
+                                   xmlns:nsb="urn:partner.soap.sforce.com"
+                                   expression="$body/nsb:records/nsa:RecordDate/text()"
+                                   type="VARCHAR"/>
+                     </statement>
+                  </dbreport>
+                  <log>
+                     <property name="STATE" value="db report success!!!"/>
+                  </log>
+               </sequence>
+            </target>
+         </iterate>
+         <log>
+            <property name="STATE" value="finished 3rd query"/>
+         </log>
+         <sequence key="sf_response_seq"/>
+      </inSequence>
+      <outSequence>
+         <send/>
+      </outSequence>
+      <faultSequence>
+         <log level="full"/>
+      </faultSequence>
+   </target>
+   <description/>
+</proxy>
+                                
